@@ -1,0 +1,15 @@
+---
+title: "01_landscape_simulation"
+author: "Arthur de Grandpré"
+date: "20 février 2020"
+output: html_document
+---
+
+1. how to simulate a landscape
+
+2. how to quantify complexity
+
+3. simulating landscapes of different complexity scales at different resolution
+
+4. natural scale gradient of spatial complexity
+
