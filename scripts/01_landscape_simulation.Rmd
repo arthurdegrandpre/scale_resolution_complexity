@@ -5,11 +5,539 @@ date: "20 février 2020"
 output: html_document
 ---
 
-1. how to simulate a landscape
+#1. How to simulate a landscape
 
-2. how to quantify complexity
+##1.1 Types of landscape patterns to simulate
 
-3. simulating landscapes of different complexity scales at different resolution
+The kind of patterns we expect in an aquatic vegetation landscape can includes :  
+1. spatial gradients (nutrients, depth, light, turbidity)  
+2. vegetation patchiness (in different forms of auto-organisation)  
+3. noise (waves, glint, remote sensing sensor noies)  
 
-4. natural scale gradient of spatial complexity
+##1.2 Landscape simulation tools
+
+###1.2.1 NLMR & landscapetools
+https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13076 (Case study 2. very similar to thesis chapter 1)  
+https://ropensci.github.io/NLMR/  
+
+Neutral landscape models (NLMs) appear to be the best tools to explore landscape complexity and its behavior in a controlled way. NLMR is a package built precisely for this reasn, providing multiple open-source landscape simulating algorythms in a single R library. Let's see how it handles our different patterns.
+  
+```{r R setup}
+
+rm(list=ls()) ; gc()
+
+# install.packages("raster")
+# install.packages("NLMR")
+# install.packages("landscapetools")
+
+library(raster)
+library(NLMR)
+library(landscapetools)
+```
+
+Let's see NLMR's documentation
+
+```{r NLMR help}
+?NLMR # leads to quickstart guide @ https://ropensci.github.io/NLMR/articles/getstarted.html
+```
+
+####1.2.1.1 spatial gradients simulation
+
+NLMR includes 3 different gradient models : Distance, Edge and Planar.
+
+The distance gradient acts as a linear distance model, starting from an origin point given in the form of a vector c(xmin,xmax,ymin,ymax). This type of gradient could represent the distance from a feature, or a source.
+
+```{r distance gradient}
+
+?nlm_distancegradient
+
+sg1 = nlm_distancegradient(ncol = 100,
+                          nrow = 100,
+                          resolution = 1,
+                          origin= c(10,10,10,10)
+                          )
+
+sg2 = nlm_distancegradient(ncol = 100,
+                          nrow = 100,
+                          resolution = 1,
+                          origin= c(10,25,10,50)
+                          )
+par(mfrow=c(1,2))
+plot(sg1, main="origin = c(10,10,10,10)")
+plot(sg2, main="origin = c(10,25,10,50)")
+```
+
+The edge gradient acts as a linear gradient oriented model in a given direction with a central peak. Application unknown?
+
+```{r edge gradient}
+
+?nlm_edgegradient()
+
+eg1 = nlm_edgegradient(ncol = 100,
+                       nrow = 100,
+                       resolution = 1,
+                       direction = 90)
+
+eg2 = nlm_edgegradient(ncol = 100,
+                       nrow = 100,
+                       resolution = 1,
+                       direction = 45)
+
+par(mfrow=c(1,2))
+plot(eg1, main="direction = 90°")
+plot(eg2, main="direction = 45°")
+
+
+```
+
+The planar gradient acts as a linear slope oriented model in a given direction. This type of gradient could represent a smooth homogenous change in environmental variable.
+
+```{r planar gradient}
+
+?nlm_planargradient()
+
+pg1 = nlm_planargradient(ncol = 100,
+                       nrow = 100,
+                       resolution = 1,
+                       direction = 90)
+
+pg2 = nlm_planargradient(ncol = 100,
+                       nrow = 100,
+                       resolution = 1,
+                       direction = 45)
+
+par(mfrow=c(1,2))
+plot(pg1, main="direction = 90°")
+plot(pg2, main="direction = 45°")
+
+```
+
+####1.2.1.2 patchiness simulation
+
+NLMR includes multiple different models capable of simulating forms of patchiness : Random curdling, Fractional browninan motin, Gaussian random field, Mosaic random field, Random neighborhood, Percolation, Polygonal landscapes (tesselation and gibbs), Random cluster, Midpoint displacement, Random rectangular cluster and Wheyed random curdling.  
+
+the most interesting ones appear to be: 
+- Random curdling  
+- Fractional brownian motion | Gaussian random field | Midpoint displacement (similar?)
+- Random neighborhood
+- Random cluster
+- Percolation | Wheyed random curdling (similar?)
+
+The random curdling model subdivides the landscape into randomized incremental blocks, where percent cover of habitat are randomly distributed at each incremental scale. Curds are the % cover of habitat, recusion steps is the number of blocks withing the next previous block level, and wheyes is an additionnal habitat fill (?). Binary, but interesting for hierarchical organization.
+
+```{r random curdling patchiness, echo=F}
+
+?nlm_curds
+
+rcp1 = nlm_curds(curds = c(0.5),
+                 recursion_steps = c(10),
+                 resolution = 1)
+
+rcp2 = nlm_curds(curds = c(0.5,0.5),
+                 recursion_steps = c(10,10),
+                 resolution = 1)
+
+rcp3 = nlm_curds(curds = c(0.5, 0.5, 0.5),
+                 recursion_steps = c(10,10,10),
+                 resolution = 1)
+
+
+rcp11 = nlm_curds(curds = c(0.75),
+                 recursion_steps = c(10),
+                 resolution = 1)
+
+rcp22 = nlm_curds(curds = c(0.75,0.5),
+                 recursion_steps = c(10,10),
+                 resolution = 1)
+
+rcp33 = nlm_curds(curds = c(0.75, 0.5, 0.25),
+                 recursion_steps = c(10,10,10),
+                 resolution = 1)
+
+par(mfrow=c(2,3))
+plot(rcp1, main="curds = c(0.5)")
+plot(rcp2, main="curds = c(0.5, 0.5)")
+plot(rcp3, main="curds = c(0.5, 0.5, 0.5)")
+plot(rcp11, main="curds = c(0.75)")
+plot(rcp22, main="curds = c(0.75, 0.5)")
+plot(rcp33, main="curds = c(0.75, 0.5, 0.25)")
+
+```
+
+
+From the documentation, Fractional brownian motion, Gaussian random field & Midpoint displacement all seem to create a similar kind of landscape. For Fractional brownian Motion, fractal dimention is the main driver in landscape variations, being related to autocorrelation within the landscape. Good for basic autocorrelation driven patches.
+
+```{r fbm, echo=F}
+
+?nlm_fbm
+
+fbm1 = nlm_fbm(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               fract_dim = 0.25)
+
+fbm2 = nlm_fbm(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               fract_dim = 0.5)
+
+fbm3 = nlm_fbm(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               fract_dim = 1)
+
+fbm4 = nlm_fbm(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               fract_dim = 1.5)
+
+par(mfrow=c(2,2))
+plot(fbm1, main = "fractal dim = 0.25")
+plot(fbm2, main = "fractal dim = 0.5")
+plot(fbm3, main = "fractal dim = 1")
+plot(fbm4, main = "fractal dim = 1.5")
+
+```
+
+Gaussian random field uses autocorrelation range and magnitude terms as the landscape and autocorrelation scales. similar to browninan movement but with more control over certain parameters.
+
+```{r gaussianfield, echo=F}
+?nlm_gaussianfield
+
+gf11 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 5,
+                        mag_var = 10,
+                        nug = 10)
+
+gf12 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 25,
+                        mag_var = 10,
+                        nug = 10)
+
+gf13 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 50,
+                        mag_var = 10,
+                        nug = 10)
+
+gf21 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 10,
+                        mag_var = 5,
+                        nug = 10)
+
+gf22 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 10,
+                        mag_var = 25,
+                        nug = 10)
+
+gf23 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 10,
+                        mag_var = 50,
+                        nug = 10)
+
+gf31 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 10,
+                        mag_var = 10,
+                        nug = 5)
+
+gf32 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 10,
+                        mag_var = 10,
+                        nug = 25)
+
+gf33 = nlm_gaussianfield(ncol = 100,
+                        nrow = 100,
+                        resolution = 1,
+                        autocorr_range = 10,
+                        mag_var = 10,
+                        nug = 50)
+
+par(mfrow=c(1,3))
+plot(gf11, main = "autorange = 5")
+plot(gf12, main = "autorange = 25")
+plot(gf13, main = "autorange = 50")
+plot(gf21, main = "magnitude = 5")
+plot(gf22, main = "magnitude = 25")
+plot(gf23, main = "magnitude = 50")
+plot(gf31, main = "nug = 5")
+plot(gf32, main = "nug = 25")
+plot(gf33, main = "nug = 50")
+```
+
+Midpoint displacement: hard to understand, but most of the changes come from the roughness parameter. small effect of random deviation and torus arguments.
+
+```{r midpoint displacement, echo=F, warning=F}
+?nlm_mpd
+
+mpd11 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.25,
+               rand_dev = 0.5,
+               torus = F)
+
+mpd12 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.5,
+               rand_dev = 0.5,
+               torus = F)
+
+
+mpd13 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 1,
+               rand_dev = 0.5,
+               torus = F)
+
+
+mpd21 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.25,
+               rand_dev = 1,
+               torus = F)
+
+
+mpd22 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.5,
+               rand_dev = 1,
+               torus = F)
+
+
+mpd23 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 1,
+               rand_dev = 1,
+               torus = F)
+
+mpd31 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.25,
+               rand_dev = 2,
+               torus = F)
+
+
+mpd32 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.5,
+               rand_dev = 2,
+               torus = F)
+
+
+mpd33 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 1,
+               rand_dev = 2,
+               torus = F)
+
+par(mfrow = c(3,3))
+plot(mpd11, main = "rough = 0.25, rand_dev = 0.5, torus = F")
+plot(mpd12, main = "rough = 0.5")
+plot(mpd13, main = "rough = 1")
+plot(mpd21, main = "rand_dev = 1")
+plot(mpd22, main = "rand_dev = 1")
+plot(mpd23, main = "rand_dev = 1")
+plot(mpd31, main = "rand_dev = 2")
+plot(mpd32, main = "rand_dev = 2")
+plot(mpd33, main = "rand_dev = 2")
+
+mpd11 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.25,
+               rand_dev = 0.5,
+               torus = T)
+
+mpd12 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.5,
+               rand_dev = 0.5,
+               torus = T)
+
+
+mpd13 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 1,
+               rand_dev = 0.5,
+               torus = T)
+
+
+mpd21 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.25,
+               rand_dev = 1,
+               torus = T)
+
+
+mpd22 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.5,
+               rand_dev = 1,
+               torus = T)
+
+
+mpd23 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 1,
+               rand_dev = 1,
+               torus = T)
+
+mpd31 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.25,
+               rand_dev = 2,
+               torus = T)
+
+mpd32 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 0.5,
+               rand_dev = 2,
+               torus = T)
+
+mpd33 = nlm_mpd(ncol = 100,
+               nrow = 100,
+               resolution = 1,
+               roughness = 1,
+               rand_dev = 2,
+               torus = T)
+
+par(mfrow = c(3,3))
+plot(mpd11, main = "rough = 0.25, rand_dev=0.5, torus = T")
+plot(mpd12, main = "rough = 0.5")
+plot(mpd13, main = "rough = 1")
+plot(mpd21, main = "rand_dev = 1")
+plot(mpd22, main = "rand_dev = 1")
+plot(mpd23, main = "rand_dev = 1")
+plot(mpd31, main = "rand_dev = 2")
+plot(mpd32, main = "rand_dev = 2")
+plot(mpd33, main = "rand_dev = 2")
+```
+
+random neighborhors appears usefull for creating multiple interacting classes within a landscape
+
+```{r random neighbors, echo=F}
+
+?nlm_neigh
+
+rn11 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.8,
+                 p_empty = 0.01,
+                 categories = 2,
+                 neighbourhood = 8)
+
+rn12 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.8,
+                 p_empty = 0.01,
+                 categories = 4,
+                 neighbourhood = 8)
+
+rn13 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.8,
+                 p_empty = 0.01,
+                 categories = 8,
+                 neighbourhood = 8)
+
+par(mfrow=c(1,3))
+plot(rn11, main="2 classes")
+plot(rn12, main="4 classes")
+plot(rn13, main="8 classes")
+
+rn11 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.9,
+                 p_empty = 0.001,
+                 categories = 4,
+                 neighbourhood = 8)
+
+rn12 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.9,
+                 p_empty = 0.01,
+                 categories = 4,
+                 neighbourhood = 8)
+
+rn13 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.9,
+                 p_empty = 0.1,
+                 categories = 4,
+                 neighbourhood = 8)
+
+rn21 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.4,
+                 p_empty = 0.001,
+                 categories = 4,
+                 neighbourhood = 8)
+
+rn22 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.4,
+                 p_empty = 0.01,
+                 categories = 4,
+                 neighbourhood = 8)
+
+rn23 = nlm_neigh(ncol = 100,
+                 nrow = 100,
+                 resolution = 1,
+                 p_neigh = 0.4,
+                 p_empty = 0.1,
+                 categories = 4,
+                 neighbourhood = 8)
+
+par(mfrow=c(2,3))
+plot(rn11, main="pn = 0.9, pe = 0.001")
+plot(rn12, main="pn = 0.9, pe = 0.01")
+plot(rn13, main="pn = 0.9, pe = 0.1")
+plot(rn21, main="pn = 0.4, pe = 0.001")
+plot(rn22, main="pn = 0.4, pe = 0.01")
+plot(rn23, main="pn = 0.4, pe = 0.1")
+```
+
+#2. how to quantify landscape complexity
+
+#3. simulating landscapes of different complexity scales at different resolution
+
+#4. natural scale gradient of spatial complexity
 
