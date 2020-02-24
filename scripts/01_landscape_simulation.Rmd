@@ -22,23 +22,25 @@ https://ropensci.github.io/NLMR/
 
 Neutral landscape models (NLMs) appear to be the best tools to explore landscape complexity and its behavior in a controlled way. NLMR is a package built precisely for this reasn, providing multiple open-source landscape simulating algorythms in a single R library. Let's see how it handles our different patterns.
   
-```{r R setup}
+```{r R setup, echo=F, warning=F, message=F}
 
 rm(list=ls()) ; gc()
 
 # install.packages("raster")
 # install.packages("NLMR")
 # install.packages("landscapetools")
+# install.packages("igraph")
 
 library(raster)
 library(NLMR)
 library(landscapetools)
+library(igraph)
 ```
 
 Let's see NLMR's documentation
 
 ```{r NLMR help}
-?NLMR # leads to quickstart guide @ https://ropensci.github.io/NLMR/articles/getstarted.html
+# ?NLMR # leads to quickstart guide @ https://ropensci.github.io/NLMR/articles/getstarted.html
 ```
 
 ####1.2.1.1 spatial gradients simulation
@@ -47,9 +49,9 @@ NLMR includes 3 different gradient models : Distance, Edge and Planar.
 
 The distance gradient acts as a linear distance model, starting from an origin point given in the form of a vector c(xmin,xmax,ymin,ymax). This type of gradient could represent the distance from a feature, or a source.
 
-```{r distance gradient}
+```{r distance gradient, echo=F}
 
-?nlm_distancegradient
+# ?nlm_distancegradient
 
 sg1 = nlm_distancegradient(ncol = 100,
                           nrow = 100,
@@ -69,9 +71,9 @@ plot(sg2, main="origin = c(10,25,10,50)")
 
 The edge gradient acts as a linear gradient oriented model in a given direction with a central peak. Application unknown?
 
-```{r edge gradient}
+```{r edge gradient, echo=F}
 
-?nlm_edgegradient()
+# ?nlm_edgegradient()
 
 eg1 = nlm_edgegradient(ncol = 100,
                        nrow = 100,
@@ -92,9 +94,9 @@ plot(eg2, main="direction = 45°")
 
 The planar gradient acts as a linear slope oriented model in a given direction. This type of gradient could represent a smooth homogenous change in environmental variable.
 
-```{r planar gradient}
+```{r planar gradient, echo = F}
 
-?nlm_planargradient()
+# ?nlm_planargradient()
 
 pg1 = nlm_planargradient(ncol = 100,
                        nrow = 100,
@@ -121,13 +123,12 @@ the most interesting ones appear to be:
 - Fractional brownian motion | Gaussian random field | Midpoint displacement (similar?)
 - Random neighborhood
 - Random cluster
-- Percolation | Wheyed random curdling (similar?)
 
 The random curdling model subdivides the landscape into randomized incremental blocks, where percent cover of habitat are randomly distributed at each incremental scale. Curds are the % cover of habitat, recusion steps is the number of blocks withing the next previous block level, and wheyes is an additionnal habitat fill (?). Binary, but interesting for hierarchical organization.
 
 ```{r random curdling patchiness, echo=F}
 
-?nlm_curds
+# ?nlm_curds
 
 rcp1 = nlm_curds(curds = c(0.5),
                  recursion_steps = c(10),
@@ -169,7 +170,7 @@ From the documentation, Fractional brownian motion, Gaussian random field & Midp
 
 ```{r fbm, echo=F}
 
-?nlm_fbm
+# ?nlm_fbm
 
 fbm1 = nlm_fbm(ncol = 100,
                nrow = 100,
@@ -202,7 +203,7 @@ plot(fbm4, main = "fractal dim = 1.5")
 Gaussian random field uses autocorrelation range and magnitude terms as the landscape and autocorrelation scales. similar to browninan movement but with more control over certain parameters.
 
 ```{r gaussianfield, echo=F}
-?nlm_gaussianfield
+# ?nlm_gaussianfield
 
 gf11 = nlm_gaussianfield(ncol = 100,
                         nrow = 100,
@@ -282,7 +283,7 @@ plot(gf33, main = "nug = 50")
 Midpoint displacement: hard to understand, but most of the changes come from the roughness parameter. small effect of random deviation and torus arguments.
 
 ```{r midpoint displacement, echo=F, warning=F}
-?nlm_mpd
+# ?nlm_mpd
 
 mpd11 = nlm_mpd(ncol = 100,
                nrow = 100,
@@ -447,7 +448,7 @@ random neighborhors appears usefull for creating multiple interacting classes wi
 
 ```{r random neighbors, echo=F}
 
-?nlm_neigh
+# ?nlm_neigh
 
 rn11 = nlm_neigh(ncol = 100,
                  nrow = 100,
@@ -534,6 +535,134 @@ plot(rn21, main="pn = 0.4, pe = 0.001")
 plot(rn22, main="pn = 0.4, pe = 0.01")
 plot(rn23, main="pn = 0.4, pe = 0.1")
 ```
+
+random cluster creates multiples classes of clusters (number and proportion dictated by ai parameter) according to a parameter p that defines how much of those classes will be in a single cluster. the result is relatively simple random patches
+
+```{r random clusters, echo=F}
+# ?nlm_randomcluster
+
+rc11 = nlm_randomcluster(ncol = 100,
+                         nrow = 100,
+                         resolution = 1,
+                         ai = c(0.5,0.5),
+                         neighbourhood = 4,
+                         p=0.2)
+
+rc12 = nlm_randomcluster(ncol = 100,
+                         nrow = 100,
+                         resolution = 1,
+                         ai = c(0.5,0.5),
+                         neighbourhood = 4,
+                         p=0.6)
+
+rc21 = nlm_randomcluster(ncol = 100,
+                         nrow = 100,
+                         resolution = 1,
+                         ai = c(0.5,0.3,0.2),
+                         neighbourhood = 4,
+                         p=0.2)
+
+rc22 = nlm_randomcluster(ncol = 100,
+                         nrow = 100,
+                         resolution = 1,
+                         ai = c(0.5,0.3,0.2),
+                         neighbourhood = 4,
+                         p=0.6)
+
+par(mfrow=c(2,2))
+plot(rc11, main="ai=c(0.5,0.5) & p=0.2")
+plot(rc12, main="ai=c(0.5,0.3,0.2) & p=0.6")
+plot(rc21, main="ai=c(0.5,0.5) & p=0.2")
+plot(rc22, main="ai=c(0.5,0.3,0.2) & p=0.6")
+
+```
+
+####1.2.1.3 spatial noise simulation
+
+NLMR includes two different models capable of simulating random noise: a random one and a percolation random model.  
+  
+The random model is just completely random
+
+```{r random, echo=F}
+# ?nlm_random
+
+ra11 = nlm_random(ncol = 100,
+                  nrow = 100,
+                  resolution = 1)
+
+par(mfrow=c(1,1))
+plot(ra11, main="random")
+```
+
+But the percolation model is random based on a designated proportion
+
+```{r percolation, echo=F}
+# ?nlm_percolation
+
+pe11 = nlm_percolation(ncol = 100,
+                       nrow = 100,
+                       resolution = 1,
+                       p = 0.25)
+
+pe12 = nlm_percolation(ncol = 100,
+                       nrow = 100,
+                       resolution = 1,
+                       p = 0.5)
+
+pe13 = nlm_percolation(ncol = 100,
+                       nrow = 100,
+                       resolution = 1,
+                       p = 0.75)
+
+par(mfrow=c(1,3))
+plot(pe11, main="p=0.25")
+plot(pe12, main="p=0.5")
+plot(pe13, main="p=0.75")
+```
+
+####1.2.1.4 Composite landscape model 
+
+Let's generate a landscape similar to a natural one expressing a single vegetation index in the water, with 4 terms:  
+1. vegetation, simulated with fractional brownian movement  
+2. bathymetry (or depth), creating a directional distribution and signal gradient with a planar gradient  
+3. random noise, associated with sensor quality  
+4. percolation noise, simulating waves effect
+
+```{r simulated landscape, echo=F}
+rm(list=ls());gc()
+# ?nlm_fbm
+veg = nlm_fbm(ncol = 100,
+              nrow = 100,
+              resolution = 1,
+              fract_dim = 0.3)
+
+bathy = nlm_planargradient(ncol = 100,
+                           nrow = 100,
+                           resolution = 1,
+                           direction=0)/2+0.5
+
+noise = nlm_random(ncol=100,
+                   nrow=100,
+                   resolution=1)/10
+
+waves = nlm_percolation(ncol=100,
+                   nrow=100,
+                   resolution=1,
+                   p=0.1)/5
+
+par(mfrow=c(2,2))
+plot(veg, main="veg")
+plot(bathy, main="bathy")
+plot(noise, main="noise")
+plot(waves, main="waves")
+
+par(mfrow=c(1,2))
+scape_noise = veg * bathy + noise + waves
+scape_clean = veg * bathy
+plot(scape_noise, main="sim scape w/ noise")
+plot(scape_clean, main="sim scape w/o noise")
+```
+
 
 #2. how to quantify landscape complexity
 
