@@ -1,0 +1,220 @@
+---
+title: "02_landscape_complexity"
+author: "Arthur de Grandpré"
+date: "24 février 2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+#2. how to quantify landscape complexity
+
+```{r R setup, echo=F, warning=F, message=F}
+
+rm(list=ls()) ; gc()
+
+# install.packages("raster")
+# install.packages("NLMR")
+# install.packages("landscapetools")
+# install.packages("igraph")
+
+library(raster)
+library(NLMR)
+library(landscapetools)
+library(igraph)
+library(tidyverse)
+library(sp)
+library(rgdal)
+```
+
+##2.1. Landscape visualisation & classification tools
+
+```{r}
+scape_noise = raster("../results/simulated_scapes/scape_noise.tif") 
+scape_clean = raster("../results/simulated_scapes/scape_clean.tif") 
+
+```
+
+
+###2.3.1. Pixel based
+
+###2.3.1.1. unsupervised
+
+###2.3.1.1.1 landscapetools
+
+landscapetools brings raster visualisation and manipulation tools to work fast with simulated (or real) landscapes.  
+it can be used to rescale, binarize, classify and visualize rasters.
+
+let's binarize our simulated landscapes and compare the noisy and clean ones with different binarization tresholds.
+
+```{r rescale binarize, echo=F}
+lsn = util_rescale(scape_noise)
+lsc = util_rescale(scape_clean)
+show_landscape(brick(lsn,lsc))
+
+lsnb = util_binarize(lsn, c(0.2,0.3,0.4))
+names(lsnb) = c("0.2 N", "0.3 N", "0.4 N" )
+lscb = util_binarize(lsc, c(0.2,0.3,0.4))
+names(lscb) = c("0.2 C", "0.3 C", "0.4 C" )
+
+show_landscape(stack(lsnb,lscb))
+
+```
+
+Let's classify the same landscapes with different numbers of classes, from 2 to 4, using the default algorythm
+
+```{r n class, echo=F}
+show_landscape(brick(lsn,lsc))
+
+lscn = util_classify(scape_noise, n = 2)
+lscc = util_classify(scape_clean, n = 2)
+show_landscape(brick(lscn,lscc))
+
+lscn = util_classify(scape_noise, n = 3)
+lscc = util_classify(scape_clean, n = 3)
+show_landscape(brick(lscn,lscc))
+
+lscn = util_classify(scape_noise, n = 4)
+lscc = util_classify(scape_clean, n = 4)
+show_landscape(brick(lscn,lscc))
+
+```
+
+We can also set the proportion of the image taken by every classes
+
+```{r weight class, echo=F}
+
+lscn = util_classify(scape_noise, weighting = c(0.5,0.25,0.25))
+lscc = util_classify(scape_clean, weighting = c(0.4,0.2,0.4))
+show_landscape(brick(lscn,lscc))
+
+```
+
+###2.3.1.1. supervised (?)
+
+###2.3.2. Object based
+
+###2.3.2.1 Orfeo Toolbox
+
+Orfeo Toolbox is an open-source toolbox for high resolution remote sensing image analysis. It is one of the rare free software suite to offer multiband image segmentation tools and feature extraction tools. It can be launched from its own GUI (Monteverdi), from a QGIS plugin, from the command line or called in it's command line form using R, python, etc.
+
+###2.3.2.1.1 Image segmentation
+
+Firt, we need to define a function to call orfeo directly from R. This is going to call the meanshift segmentation tool.
+
+```{r define segmentation function}
+
+meanshift.segm <- function(otb.path  = "",
+                           raster.in = "",
+                           out.path  = "",
+                           name      = "",
+                           filter.meanshift.spatialr = "5",   #default 5
+                           filter.meanshift.ranger   = "0.003",  #default 15
+                           filter.meanshift.thres    = "0.001", #default 0.1
+                           filter.meanshift.maxiter  = "100", #default 100
+                           filter.meanshift.minsize  = "10"  #default 100
+                           
+                           ){
+  
+# Set configuration      
+conf <- paste("-RAM 4096","-in",raster.in,"-filter meanshift","-filter.meanshift.spatialr",filter.meanshift.spatialr,
+                "-filter.meanshift.ranger",filter.meanshift.ranger,"-filter.meanshift.thres",filter.meanshift.thres,
+                "-filter.meanshift.maxiter",filter.meanshift.maxiter,"-filter.meanshift.minsize",filter.meanshift.minsize,
+                "-mode vector","-mode.vector.out",paste0(out.path,"/",name,".shp"))
+  
+  shell(paste("pushd ",otb.path,"&& otbcli_Segmentation ",conf))
+
+write.table(x = conf,file = paste(out.path,"/",name,"_conf.txt",sep=""),row.names = F, col.names = F)
+}
+```
+
+We can then use function to perform a segmentation onto our desired scene(s).
+
+```{r segmentation}
+input_dir = dir(paste0("C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes"),full.names=T, pattern=".tif$")
+
+output_dir = "C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes\\seg"
+
+ for(i in 1:length(input_dir)){
+  
+meanshift.segm(filter.meanshift.spatialr = "5",   #default 5
+               filter.meanshift.ranger   = "0.003",  #default 15
+               filter.meanshift.thres    = "0.01", #default 0.1
+               filter.meanshift.maxiter  = "100", #default 100
+               filter.meanshift.minsize  = "10",  #default 100
+               otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+               raster.in = gsub("/","\\\\",input_dir[i]),
+               out.path  = gsub("/","\\\\",output_dir),
+               name      = str_sub(input_dir[i],-15))
+
+ }
+
+```
+
+```{r segvis}
+segs = dir("../results/simulated_scapes/seg",pattern=".shp$",full.names=T)
+cs = readOGR(segs[1])
+ns = readOGR(segs[2])
+
+plot(cs);plot(ns)
+
+rasterOptions(todisk=T)
+rasterOptions(tmpdir="D:/Arthur/temp")
+
+ for(i in 1:length(input_dir)){
+print(paste0("image ",i," of ",length(imgs)))
+
+r = brick(imgs[i])
+rv = velox::velox(r)
+
+# adding vegetation indexes
+psp = readOGR(shp[i])
+
+extract = as.data.frame(rv$extract(psp, fun=mean))
+
+bands4i = append(bands4,c("NDVI","WAVI"))
+bands8i = append(bands8,c("NDVI","WAVI"))
+
+if(length(colnames(extract))>8){
+colnames(extract) = bands8i
+}
+
+if(length(colnames(extract))<8){
+colnames(extract) = bands4i
+}
+
+# hist(extract$N);hist(extract$NDVI);hist(extract$WAVI)
+
+psp@data = cbind(psp@data,extract)
+psp2 = sp.na.omit(psp)
+psp2 = psp2[psp2@data$R>0,]
+
+water_mask = psp2[psp2@data$WAVI<0.25,]
+# water_mask = psp2[psp2@data$WAVI<0.25,]
+# plot()
+# plot(water_mask)
+# plot(r$N);plot(r$WAVI)
+
+water_mask2 = water_mask[water_mask@data$N<0.35,]
+
+
+wmsf = st_as_sf(water_mask2)
+wmsfc = st_union(wmsf)
+
+skip_to_next <- FALSE
+
+water = tryCatch(
+  mask(r, as_Spatial(wmsfc)), error = function(e) {skip_to_next <<- TRUE}
+)
+
+if(skip_to_next){next}
+
+writeRaster(water, paste0("//Glaciolab/homes/degranda/MFFP/digitalglobe_archives/water_mask/",str_sub(imgs[i],-46)), overwrite=T)
+ }
+```
+
+#3. simulating landscapes of different complexity scales at different resolution
+
+#4. natural scale gradient of spatial complexity
+

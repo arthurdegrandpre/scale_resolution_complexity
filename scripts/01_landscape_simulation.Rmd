@@ -2,21 +2,26 @@
 title: "01_landscape_simulation"
 author: "Arthur de Grandpré"
 date: "20 février 2020"
-output: html_document
+output: 
+  html_document: 
+    toc: yes
+    toc_float: yes
+editor_options: 
+  chunk_output_type: inline
 ---
 
 #1. How to simulate a landscape
 
-##1.1 Types of landscape patterns to simulate
+##1.1. Types of landscape patterns to simulate
 
 The kind of patterns we expect in an aquatic vegetation landscape can includes :  
 1. spatial gradients (nutrients, depth, light, turbidity)  
 2. vegetation patchiness (in different forms of auto-organisation)  
 3. noise (waves, glint, remote sensing sensor noies)  
 
-##1.2 Landscape simulation tools
+##1.2. Landscape simulation tools
 
-###1.2.1 NLMR & landscapetools
+###1.2.1. NLMR
 https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13076 (Case study 2. very similar to thesis chapter 1)  
 https://ropensci.github.io/NLMR/  
 
@@ -43,7 +48,7 @@ Let's see NLMR's documentation
 # ?NLMR # leads to quickstart guide @ https://ropensci.github.io/NLMR/articles/getstarted.html
 ```
 
-####1.2.1.1 spatial gradients simulation
+###1.2.1.1. spatial gradients simulation
 
 NLMR includes 3 different gradient models : Distance, Edge and Planar.
 
@@ -114,7 +119,7 @@ plot(pg2, main="direction = 45°")
 
 ```
 
-####1.2.1.2 patchiness simulation
+###1.2.1.2. patchiness simulation
 
 NLMR includes multiple different models capable of simulating forms of patchiness : Random curdling, Fractional browninan motin, Gaussian random field, Mosaic random field, Random neighborhood, Percolation, Polygonal landscapes (tesselation and gibbs), Random cluster, Midpoint displacement, Random rectangular cluster and Wheyed random curdling.  
 
@@ -577,7 +582,7 @@ plot(rc22, main="ai=c(0.5,0.3,0.2) & p=0.6")
 
 ```
 
-####1.2.1.3 spatial noise simulation
+###1.2.1.3. spatial noise simulation
 
 NLMR includes two different models capable of simulating random noise: a random one and a percolation random model.  
   
@@ -620,7 +625,7 @@ plot(pe12, main="p=0.5")
 plot(pe13, main="p=0.75")
 ```
 
-####1.2.1.4 Composite landscape model 
+###1.2.1.4. Composite landscape model 
 
 Let's generate a landscape similar to a natural one expressing a single vegetation index in the water, with 4 terms:  
 1. vegetation, simulated with fractional brownian movement  
@@ -634,7 +639,7 @@ rm(list=ls());gc()
 veg = nlm_fbm(ncol = 100,
               nrow = 100,
               resolution = 1,
-              fract_dim = 0.3)
+              fract_dim = 0.8)
 
 bathy = nlm_planargradient(ncol = 100,
                            nrow = 100,
@@ -661,12 +666,7 @@ scape_noise = veg * bathy + noise + waves
 scape_clean = veg * bathy
 plot(scape_noise, main="sim scape w/ noise")
 plot(scape_clean, main="sim scape w/o noise")
+
+writeRaster(scape_noise, "../results/simulated_scapes/scape_noise.tif", overwrite=T)
+writeRaster(scape_clean, "../results/simulated_scapes/scape_clean.tif", overwrite=T)
 ```
-
-
-#2. how to quantify landscape complexity
-
-#3. simulating landscapes of different complexity scales at different resolution
-
-#4. natural scale gradient of spatial complexity
-
