@@ -1,0 +1,1 @@
+"-RAM 2048 -in C:\Users\Arthur\Desktop\Rscripts\roxe\scale_resolution_complexity\results\simulated_scapes\scape_clean.tif -channel 1 -radius 3 -out C:\Users\Arthur\Desktop\Rscripts\roxe\scale_resolution_complexity\results\simulated_scapes\feat_localstats\/ls_scape_clean.tif"
