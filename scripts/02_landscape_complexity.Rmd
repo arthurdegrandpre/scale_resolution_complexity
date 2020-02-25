@@ -2,13 +2,18 @@
 title: "02_landscape_complexity"
 author: "Arthur de Grandpré"
 date: "24 février 2020"
-output: html_document
+output: 
+  html_document: 
+    toc: yes
+    toc_float: yes
 editor_options: 
   chunk_output_type: inline
 ---
 
 
 #2. how to quantify landscape complexity
+
+The first step to quantify landscape complexity is to classify it. Classifying allows 
 
 ```{r R setup, echo=F, warning=F, message=F}
 
@@ -18,6 +23,8 @@ rm(list=ls()) ; gc()
 # install.packages("NLMR")
 # install.packages("landscapetools")
 # install.packages("igraph")
+# install.packages("velox")
+# install.packages("spatialEco")
 
 library(raster)
 library(NLMR)
@@ -26,6 +33,9 @@ library(igraph)
 library(tidyverse)
 library(sp)
 library(rgdal)
+library(velox)
+library(spatialEco)
+library(sf)
 ```
 
 ##2.1. Landscape visualisation & classification tools
@@ -61,7 +71,7 @@ names(lscb) = c("0.2 C", "0.3 C", "0.4 C" )
 show_landscape(stack(lsnb,lscb))
 
 ```
-
+Noisy images tend to have very grainy classification, with large amounts of stray pixels.  
 Let's classify the same landscapes with different numbers of classes, from 2 to 4, using the default algorythm
 
 ```{r n class, echo=F}
@@ -91,6 +101,8 @@ show_landscape(brick(lscn,lscc))
 
 ```
 
+Clearly, noisy pixels are expected to greatly affect complexity measurements within this type of landscape. Object based methods might be able to buffer this effect.
+
 ###2.3.1.1. supervised (?)
 
 ###2.3.2. Object based
@@ -101,7 +113,7 @@ Orfeo Toolbox is an open-source toolbox for high resolution remote sensing image
 
 ###2.3.2.1.1 Image segmentation
 
-Firt, we need to define a function to call orfeo directly from R. This is going to call the meanshift segmentation tool.
+First, we need to define a function to call orfeo directly from R. This is going to call the meanshift segmentation tool.
 
 ```{r define segmentation function}
 
@@ -152,20 +164,23 @@ meanshift.segm(filter.meanshift.spatialr = "5",   #default 5
 
 ```
 
+segments should be slightly different in both images, because of the added noise.
 ```{r segvis}
-segs = dir("../results/simulated_scapes/seg",pattern=".shp$",full.names=T)
-cs = readOGR(segs[1])
-ns = readOGR(segs[2])
+shp = dir("../results/simulated_scapes/seg",pattern=".shp$",full.names=T)
+cs = readOGR(shp[1])
+ns = readOGR(shp[2])
 
 plot(cs);plot(ns)
+```
 
-rasterOptions(todisk=T)
-rasterOptions(tmpdir="D:/Arthur/temp")
+Now, different values can be extracted from the polygons, such as zonal statistics and "features"  
+Let's just compare how both images react to a mean = 0.5 object treshold
 
+```{r}
  for(i in 1:length(input_dir)){
-print(paste0("image ",i," of ",length(imgs)))
+print(paste0("scape ",i," of ",length(input_dir)))
 
-r = brick(imgs[i])
+r = brick(input_dir[i])
 rv = velox::velox(r)
 
 # adding vegetation indexes
@@ -173,46 +188,21 @@ psp = readOGR(shp[i])
 
 extract = as.data.frame(rv$extract(psp, fun=mean))
 
-bands4i = append(bands4,c("NDVI","WAVI"))
-bands8i = append(bands8,c("NDVI","WAVI"))
-
-if(length(colnames(extract))>8){
-colnames(extract) = bands8i
-}
-
-if(length(colnames(extract))<8){
-colnames(extract) = bands4i
-}
-
-# hist(extract$N);hist(extract$NDVI);hist(extract$WAVI)
-
 psp@data = cbind(psp@data,extract)
-psp2 = sp.na.omit(psp)
-psp2 = psp2[psp2@data$R>0,]
 
-water_mask = psp2[psp2@data$WAVI<0.25,]
-# water_mask = psp2[psp2@data$WAVI<0.25,]
-# plot()
-# plot(water_mask)
-# plot(r$N);plot(r$WAVI)
+treshold = 0.5
+mask = psp[psp@data$V1>treshold,]
+mask2 = st_as_sf(mask)
+masku = st_union(mask2)
 
-water_mask2 = water_mask[water_mask@data$N<0.35,]
-
-
-wmsf = st_as_sf(water_mask2)
-wmsfc = st_union(wmsf)
-
-skip_to_next <- FALSE
-
-water = tryCatch(
-  mask(r, as_Spatial(wmsfc)), error = function(e) {skip_to_next <<- TRUE}
-)
-
-if(skip_to_next){next}
-
-writeRaster(water, paste0("//Glaciolab/homes/degranda/MFFP/digitalglobe_archives/water_mask/",str_sub(imgs[i],-46)), overwrite=T)
- }
+plot(r)
+plot(masku,add=T)
+}
 ```
+
+We can see that the addition of noise can have a major impact on segmentation and classification results, with the appearance of many "false positives" in single feature classification. Use of multiple features classification could make this approach more robust.
+
+###2.3.2.1.2 Feature extraction
 
 #3. simulating landscapes of different complexity scales at different resolution
 
