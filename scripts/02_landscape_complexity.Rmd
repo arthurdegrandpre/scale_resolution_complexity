@@ -204,6 +204,257 @@ We can see that the addition of noise can have a major impact on segmentation an
 
 ###2.3.2.1.2 Feature extraction
 
+Other than basic spectral information, additional informations can be extracted from objects within an image, such as texture, zonal statistics, patch metrics. Let's see if some of them can make classification more robust. Feature extraction can be performed before segmentation, and be included in all steps leading to classification. 
+
+features can be exctracted using Orfeo, and include many different categories.
+
+1. radiometric indexes (not applicable here because of single band simulation)
+2. local statistical moments
+
+for details see : https://www.orfeo-toolbox.org/CookBook/recipes/featextract.html
+
+```{r localstat fun, echo=F}
+feature.LocalStatisticExtraction <- function(otb.path  = "",
+                           raster.in = "",
+                           out.path  = "",
+                           name      = "",
+                           channel = "1",   #default 1, selected channel index in input image
+                           radius   = "3"  #default 3, computational window radius
+                           ){
+  
+# Set configuration      
+conf <- paste("-RAM 2048",
+              "-in",raster.in,
+              "-channel",channel,
+              "-radius",radius,
+              "-out",paste0(out.path,"/",name)
+              )
+  
+  shell(paste("pushd ",otb.path,"&& otbcli_LocalStatisticExtraction ",conf))
+
+write.table(x = conf,file = paste(out.path,"/",name,"_conf.txt",sep=""),row.names = F, col.names = F)
+}
+```
+
+```{r localstat}
+input_dir = dir(paste0("C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes"),full.names=T, pattern=".tif$")
+output_dir = "C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes\\feat_localstats\\"
+
+ for(i in 1:length(input_dir)){
+  
+feature.LocalStatisticExtraction(
+                           otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+                           raster.in = gsub("/","\\\\",input_dir[i]),
+                           out.path  = gsub("/","\\\\",output_dir),
+                           name      = paste0("ls_",str_sub(input_dir[i],-15)),
+                           channel = "1",   #default 1, selected channel index in input image
+                           radius   = "3"  #default 3, computational window radius
+                           )
+
+ }
+```
+
+3. edge extraction
+
+for details see : https://www.orfeo-toolbox.org/CookBook/recipes/featextract.html
+
+```{r edgeextract fun, echo=F}
+feature.EdgeExtraction <- function(otb.path  = "",
+                           raster.in = "",
+                           out.path  = "",
+                           name      = "",
+                           channel = "1",   #default 1, selected channel index in input image
+                           filter   = "gradient"  #default gradient, but can be changed for sobel or touzi
+                           ){
+  
+# Set configuration      
+conf <- paste("-RAM 2048",
+              "-in",raster.in,
+              "-channel",channel,
+              "-filter",filter,
+              "-out",paste0(out.path,"/",name)
+              )
+  
+  shell(paste("pushd ",otb.path,"&& otbcli_EdgeExtraction ",conf))
+
+write.table(x = conf,file = paste(out.path,"/",name,"_conf.txt",sep=""),row.names = F, col.names = F)
+}
+```
+
+```{r edgeextract}
+input_dir = dir(paste0("C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes"),full.names=T, pattern=".tif$")
+output_dir = "C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes\\feat_edgeextract\\"
+
+ for(i in 1:length(input_dir)){
+  
+feature.EdgeExtraction(
+                           otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+                           raster.in = gsub("/","\\\\",input_dir[i]),
+                           out.path  = gsub("/","\\\\",output_dir),
+                           name      = paste0("ee_",str_sub(input_dir[i],-15)),
+                           channel = "1",   #default 1, selected channel index in input image
+                           filter   = "gradient"  #default 3, computational window radius
+                           )
+
+ }
+```
+
+4. haralick textures
+
+for details see : https://www.orfeo-toolbox.org/CookBook/recipes/featextract.html
+```{r haralick fun, echo=F}
+feature.HaralickTextureExtraction <- function(otb.path  = "",
+                           raster.in = "",
+                           out.path  = "",
+                           name      = "",
+                           channel = "1",   #default 1, selected channel index in input image
+                           texture   = "simple",  #default simple, also available "advanced" or "higher"
+                           parameters.min = "0", #input image minimum value
+                           parameters.max = "1", #input image maximum value
+                           parameters.xrad = "2", #xradius in pixels
+                           parameters.yrad = "2", #yradisu in pixels
+                           parameters.xoff = "1", #xoffset in pixels
+                           parameters.yoff = "1", #yoffset in pixels
+                           parameters.nbbin = "8" # bins per axis of histogram
+                           
+                           ){
+  
+# Set configuration      
+conf <- paste("-RAM 2048",
+              "-in",raster.in,
+              "-channel",channel,
+              "-texture",texture,
+              "-parameters.min",parameters.min,
+              "-parameters.max",parameters.max,
+              "-parameters.xrad",parameters.xrad,
+              "-parameters.yrad",parameters.yrad,
+              "-parameters.xoff",parameters.xoff,
+              "-parameters.yoff",parameters.yoff,
+              "-parameters.nbbin",parameters.nbbin,
+              "-out",paste0(out.path,"/",name)
+              )
+  
+  shell(paste("pushd ",otb.path,"&& otbcli_HaralickTextureExtraction ",conf))
+
+write.table(x = conf,file = paste(out.path,"/",name,"_conf.txt",sep=""),row.names = F, col.names = F)
+}
+```
+
+```{r haralick}
+input_dir = dir(paste0("C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes"),full.names=T, pattern=".tif$")
+output_dir = "C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes\\feat_haralick\\"
+
+ for(i in 1:length(input_dir)){
+  
+feature.HaralickTextureExtraction(
+                           otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+                           raster.in = gsub("/","\\\\",input_dir[i]),
+                           out.path  = gsub("/","\\\\",output_dir),
+                           name      = paste0("ht_",str_sub(input_dir[i],-15)),
+                           channel = "1",   #default 1, selected channel index in input image
+                           texture   = "simple",  #default simple, also available "advanced" or "higher"
+                           parameters.min = "0", #input image minimum value
+                           parameters.max = "1", #input image maximum value
+                           parameters.xrad = "2", #xradius in pixels
+                           parameters.yrad = "2", #yradisu in pixels
+                           parameters.xoff = "1", #xoffset in pixels
+                           parameters.yoff = "1", #yoffset in pixels
+                           parameters.nbbin = "8" # bins per axis of histogram
+                           
+                           )
+
+ }
+```
+
+####2.3.2.1.2.1 Segmentation with new features
+
+Now that new features have been calculated, a new raster brick can be assembled and used for segmentation.
+
+```{r}
+imgs = dir("../results/simulated_scapes/",pattern=".tif$",full.names=T, recursive=T)
+imgs_clean = imgs[str_detect(imgs, ".*clean")]
+imgs_noise = imgs[str_detect(imgs, ".*noise")]
+```
+
+```{r}
+
+rc = brick(imgs_clean[1])
+for(i in 2:length(imgs_clean)){
+rc = addLayer(rc, brick(imgs_clean[i]))
+rc = util_rescale(rc)
+}
+
+writeRaster(rc, "../results/simulated_scapes/scape_features/scape_clean.tif", overwrite=T)
+
+rn = brick(imgs_noise[1])
+for(i in 2:length(imgs_noise)){
+rn = addLayer(rn, brick(imgs_noise[i]))
+rn = util_rescale(rn)
+}
+
+writeRaster(rc, "../results/simulated_scapes/scape_features/scape_noise.tif", overwrite=T)
+
+plot(rc)
+plot(rn)
+```
+
+
+```{r}
+input_dir = dir(paste0("C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes\\scape_features"),full.names=T, pattern=".tif$")
+
+output_dir = "C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\simulated_scapes\\seg\\features"
+
+ for(i in 1:length(input_dir)){
+  
+meanshift.segm(filter.meanshift.spatialr = "5",   #default 5
+               filter.meanshift.ranger   = "0.003",  #default 15
+               filter.meanshift.thres    = "0.01", #default 0.1
+               filter.meanshift.maxiter  = "100", #default 100
+               filter.meanshift.minsize  = "10",  #default 100
+               otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+               raster.in = gsub("/","\\\\",input_dir[i]),
+               out.path  = gsub("/","\\\\",output_dir),
+               name      = str_sub(input_dir[i],-15))
+
+ }
+```
+
+```{r segvis}
+shp = dir("../results/simulated_scapes/seg/features",pattern=".shp$",full.names=T)
+cs = readOGR(shp[1])
+ns = readOGR(shp[2])
+
+plot(cs, main="clean segments");plot(ns, main="noisy segments")
+```
+
+Already, segments are the same within both pictures.  
+Let's extract zonal statistics for segments within the landscape
+
+```{r}
+
+library(spatialEco)
+
+r = brick(input_dir[1])
+
+psp = readOGR(shp[1])
+
+zonal_psp = zonal.stats(psp, r, stats=c("min","sd","mean","max"))
+
+psp@data = cbind(psp@data,zonal_psp)
+
+mask = psp[psp@data$mean.scape_clean.14>0.5,]
+mask2 = st_as_sf(mask)
+masku = st_union(mask2)
+
+plot(r$scape_clean.14)
+plot(masku,add=T)
+
+
+```
+
+```
+
+
 #3. simulating landscapes of different complexity scales at different resolution
 
 #4. natural scale gradient of spatial complexity
