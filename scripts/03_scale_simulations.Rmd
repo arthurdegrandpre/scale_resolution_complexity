@@ -1,0 +1,314 @@
+---
+title: "03_scale_simulations"
+author: "Arthur de Grandpré"
+date: "6 mars 2020"
+output: 
+  html_document: 
+    toc: yes
+    toc_float: yes
+---
+
+#3. simulating landscapes of different complexity scales at different resolution
+
+## 3.0 R setup
+
+```{r R setup, echo=F, warning=F, message=F}
+
+rm(list=ls()) ; gc()
+
+library(raster)
+library(NLMR)
+library(landscapetools)
+library(igraph)
+library(tidyverse)
+library(sp)
+library(rgdal)
+library(velox)
+library(spatialEco)
+library(sf)
+library(randomForest)
+library(landscapemetrics)
+library(spatialwarnings)
+```
+
+```{r localstat fun, echo=F}
+feature.LocalStatisticExtraction <- function(otb.path  = "",
+                           raster.in = "",
+                           out.path  = "",
+                           name      = "",
+                           channel = "1",   #default 1, selected channel index in input image
+                           radius   = "3"  #default 3, computational window radius
+                           ){
+  
+# Set configuration      
+conf <- paste("-RAM 2048",
+              "-in",raster.in,
+              "-channel",channel,
+              "-radius",radius,
+              "-out",paste0(out.path,"/",name)
+              )
+  
+  shell(paste("pushd ",otb.path,"&& otbcli_LocalStatisticExtraction ",conf))
+
+write.table(x = conf,file = paste(out.path,"/",name,"_conf.txt",sep=""),row.names = F, col.names = F)
+}
+```
+
+```{r edgeextract fun, echo=F}
+feature.EdgeExtraction <- function(otb.path  = "",
+                           raster.in = "",
+                           out.path  = "",
+                           name      = "",
+                           channel = "1",   #default 1, selected channel index in input image
+                           filter   = "gradient"  #default gradient, but can be changed for sobel or touzi
+                           ){
+  
+# Set configuration      
+conf <- paste("-RAM 2048",
+              "-in",raster.in,
+              "-channel",channel,
+              "-filter",filter,
+              "-out",paste0(out.path,"/",name)
+              )
+  
+  shell(paste("pushd ",otb.path,"&& otbcli_EdgeExtraction ",conf))
+
+write.table(x = conf,file = paste(out.path,"/",name,"_conf.txt",sep=""),row.names = F, col.names = F)
+}
+```
+
+```{r haralick fun, echo=F}
+feature.HaralickTextureExtraction <- function(otb.path  = "",
+                           raster.in = "",
+                           out.path  = "",
+                           name      = "",
+                           channel = "1",   #default 1, selected channel index in input image
+                           texture   = "simple",  #default simple, also available "advanced" or "higher"
+                           parameters.min = "0", #input image minimum value
+                           parameters.max = "1", #input image maximum value
+                           parameters.xrad = "2", #xradius in pixels
+                           parameters.yrad = "2", #yradisu in pixels
+                           parameters.xoff = "1", #xoffset in pixels
+                           parameters.yoff = "1", #yoffset in pixels
+                           parameters.nbbin = "8" # bins per axis of histogram
+                           
+                           ){
+  
+# Set configuration      
+conf <- paste("-RAM 2048",
+              "-in",raster.in,
+              "-channel",channel,
+              "-texture",texture,
+              "-parameters.min",parameters.min,
+              "-parameters.max",parameters.max,
+              "-parameters.xrad",parameters.xrad,
+              "-parameters.yrad",parameters.yrad,
+              "-parameters.xoff",parameters.xoff,
+              "-parameters.yoff",parameters.yoff,
+              "-parameters.nbbin",parameters.nbbin,
+              "-out",paste0(out.path,"/",name)
+              )
+  
+  shell(paste("pushd ",otb.path,"&& otbcli_HaralickTextureExtraction ",conf))
+
+write.table(x = conf,file = paste(out.path,"/",name,"_conf.txt",sep=""),row.names = F, col.names = F)
+}
+```
+
+```{r define segmentation function, echo=F}
+
+meanshift.segm <- function(otb.path  = "",
+                           raster.in = "",
+                           out.path  = "",
+                           name      = "",
+                           filter.meanshift.spatialr = "5",   #default 5
+                           filter.meanshift.ranger   = "0.003",  #default 15
+                           filter.meanshift.thres    = "0.001", #default 0.1
+                           filter.meanshift.maxiter  = "100", #default 100
+                           filter.meanshift.minsize  = "10"  #default 100
+                           
+                           ){
+  
+# Set configuration      
+conf <- paste("-RAM 4096","-in",raster.in,"-filter meanshift","-filter.meanshift.spatialr",filter.meanshift.spatialr,
+                "-filter.meanshift.ranger",filter.meanshift.ranger,"-filter.meanshift.thres",filter.meanshift.thres,
+                "-filter.meanshift.maxiter",filter.meanshift.maxiter,"-filter.meanshift.minsize",filter.meanshift.minsize,
+                "-mode vector","-mode.vector.out",paste0(out.path,"/",name,".shp"))
+  
+  shell(paste("pushd ",otb.path,"&& otbcli_Segmentation ",conf))
+
+write.table(x = conf,file = paste(out.path,"/",name,"_conf.txt",sep=""),row.names = F, col.names = F)
+}
+```
+
+## 3.1 mass landscape simulation
+
+```{r, eval=F}
+fractal_dims = seq(0.1,2,0.1)
+aggregation_factors = seq(1,10,0.5)
+replicates = 5
+output_dir = "./results/mass_scapes/originals/"
+
+for(i in seq_along(fractal_dims)){
+  for(i2 in 1:replicates){
+    veg = nlm_fbm(ncol = 100,
+                  nrow = 100,
+                  resolution = 1,
+                  fract_dim = fractal_dims[i])
+    for(j in seq_along(aggregation_factors)){
+      aggr = aggregate(veg, fact=aggregation_factors[j])
+      # plot(aggr, main = paste0("fractal_dim = ",fractal_dims[i]," agg_fac = ", aggregation_factors[j]))
+      writeRaster(aggr,paste0(output_dir,"frac_",i,"_agg_",j,"_",i2,".tif"),overwrite=T)
+    }
+  }
+}
+```
+
+#3.2 extract features from rasters
+
+```{r}
+input_dir = dir(paste0("C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\mass_scapes\\originals"),full.names=T, pattern=".tif$")
+
+output_dir = "C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\mass_scapes"
+
+for(i in seq_along(input_dir)){
+
+feature.LocalStatisticExtraction(
+                           otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+                           raster.in = gsub("/","\\\\",input_dir[i]),
+                           out.path  = paste0(gsub("/","\\\\",output_dir),"\\localstats"),
+                           name      = paste0("ls_",str_match(input_dir[i],"originals/(.*)")[2]),
+                           channel = "1",   #default 1, selected channel index in input image
+                           radius   = "3"  #default 3, computational window radius
+                           )
+
+  
+feature.EdgeExtraction(
+                           otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+                           raster.in = gsub("/","\\\\",input_dir[i]),
+                           out.path  = paste0(gsub("/","\\\\",output_dir),"\\edge"),
+                           name      = paste0("ee_",str_match(input_dir[i],"originals/(.*)")[2]),
+                           channel = "1",   #default 1, selected channel index in input image
+                           filter   = "gradient"  #default 3, computational window radius
+                           )
+
+feature.HaralickTextureExtraction(
+                           otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+                           raster.in = gsub("/","\\\\",input_dir[i]),
+                           out.path  = paste0(gsub("/","\\\\",output_dir),"\\haralick"),
+                           name      = paste0("ht_",str_match(input_dir[i],"originals/(.*)")[2]),
+                           channel = "1",   #default 1, selected channel index in input image
+                           texture   = "simple",  #default simple, also available "advanced" or "higher"
+                           parameters.min = "0", #input image minimum value
+                           parameters.max = "1", #input image maximum value
+                           parameters.xrad = "2", #xradius in pixels
+                           parameters.yrad = "2", #yradisu in pixels
+                           parameters.xoff = "1", #xoffset in pixels
+                           parameters.yoff = "1", #yoffset in pixels
+                           parameters.nbbin = "8" # bins per axis of histogram
+                           
+                           )
+}
+```
+
+#3.3brick features with original raster
+
+```{r}
+input_dir = "./results/mass_scapes/"
+features = c("localstats","edge","haralick")
+input_rasters = dir(paste0(input_dir,"originals"),pattern=".tif$",full.names=T)
+
+for(i in seq_along(input_rasters)){
+  rb = brick(input_rasters[i])
+  for(j in seq_along(features)){
+    rb = addLayer(rb, util_rescale(brick(dir(paste0(input_dir,features[j]),pattern=".tif$",full.names=T)[i])))
+  }
+  writeRaster(rb, paste0("./results/mass_scapes/feature_bricks/",str_match(input_rasters[i],"originals/(.*)")[2]), overwrite=T)
+}
+```
+
+#3.4 segmentation for all rasters
+
+```{r}
+input_dir = dir(paste0("C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\mass_scapes\\feature_bricks"),full.names=T, pattern=".tif$")
+
+output_dir = "C:\\Users\\Arthur\\Desktop\\Rscripts\\roxe\\scale_resolution_complexity\\results\\mass_scapes\\segmentation"
+
+for(i in seq_along(input_dir)){
+
+meanshift.segm(filter.meanshift.spatialr = "5",   #default 5
+               filter.meanshift.ranger   = "0.003",  #default 15
+               filter.meanshift.thres    = "0.01", #default 0.1
+               filter.meanshift.maxiter  = "100", #default 100
+               filter.meanshift.minsize  = "10",  #default 100
+               otb.path  = "D:\\OTB-7.0.0-Win64\\bin",
+               raster.in = gsub("/","\\\\",input_dir[i]),
+               out.path  = gsub("/","\\\\",output_dir),
+               name      = str_match(input_dir[i],"feature_bricks/(.*)")[2])
+}
+```
+
+#3.5 zonal stats and random forest classification based on features
+
+```{r}
+shp = dir("./results/mass_scapes/segmentation",pattern=".shp$",full.names=T)
+treshold = 0.5
+
+for(i in seq_along(input_dir)){
+
+  r = brick(input_dir[i])
+  rv = velox(r)
+  psp = readOGR(shp[i])
+  
+  zonal_psp = zonal.stats(psp, r, stats=c("min","sd","mean","max"))
+  psp@data = cbind(psp@data,zonal_psp)
+  
+  vegetation = sample_n(psp@data[psp@data[,30]>treshold,],25)[,2:dim(psp@data)[2]]
+  no_veg = sample_n(psp@data[psp@data[,30]<treshold,],25)[,2:dim(psp@data)[2]]
+  
+  vegetation$class = as.factor("vegetation")
+  no_veg$class = as.factor("no_veg")
+  
+  training = rbind(vegetation,no_veg)
+  
+  rf = randomForest(formula = class~.,
+             data=training,
+             proximity=T,
+             ntree = 1000)
+  
+  psp@data$class = predict(rf, psp@data)
+  psp@data = na.omit(psp@data)
+  
+  veg_obj = psp[psp@data$class=="vegetation",] #random forest mask
+  veg_mask1 = st_as_sf(veg_obj)
+  veg_mask = st_union(veg_mask1)
+
+  st_write(veg_mask,
+         paste0("./results/mass_scapes/classification/",str_match(input_dir[i],"feature_bricks/(.*).tif")[2],".shp"),
+         driver="ESRI shapefile")
+}
+```
+
+#3.6 EWS and landscape metrics
+
+```{r}
+veg_shps = dir("./results/mass_scapes/classification/",full.names=T,pattern=".shp$")
+
+# for(i in seq_along(veg_shps)){
+i=1
+  veg = readOGR(veg_shps[i])
+  rv = rasterize(veg,r)
+  
+  m = as.matrix(rv)
+  m [is.na(m)] = 0
+  
+  gs = as.data.frame(generic_sews(m))
+  ss = as.data.frame(spectral_sews(m))
+  
+  ml = m > 0
+  pds = as.data.frame(patchdistr_sews(ml))
+# }
+```
+
+
+#4. natural scale gradient of spatial complexity
